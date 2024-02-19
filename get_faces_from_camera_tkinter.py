@@ -8,6 +8,8 @@ import logging
 import tkinter as tk
 from tkinter import font as tkFont
 from PIL import Image, ImageTk
+import re
+import requests
 
 # Use frontal face detector of Dlib
 detector = dlib.get_frontal_face_detector()
@@ -71,7 +73,7 @@ class Face_Register:
         self.fps_show = 0
         self.start_time = time.time()
 
-        self.cap = cv2.VideoCapture(0)  # Get video stream from camera
+        self.cap = cv2.VideoCapture(1)  # Get video stream from camera
 
         # self.cap = cv2.VideoCapture("test.mp4")   # Input local video
 
@@ -92,7 +94,164 @@ class Face_Register:
         self.create_face_folder()
         self.label_cnt_face_in_database['text'] = str(self.existing_faces_cnt)
 
+    def GUI_get_input_id(self):
+        self.input_name_char = self.input_student_id.get()
+        if not self.input_name_char:
+            self.log_all.config(text="Please enter a student ID", fg="red")
+            return
+
+        # Create face folder based on student ID
+        self.create_face_folder()
+        self.label_cnt_face_in_database['text'] = str(self.existing_faces_cnt)
+        # Optionally, you can display a success message
+        self.log_all.config(text=f"Face folder for student ID {self.student_id} created successfully!", fg="green")
+
     def GUI_info(self):
+        tk.Label(self.frame_right_info,
+                text="Face Register",
+                font=self.font_title).grid(row=0, column=0, columnspan=3, sticky=tk.W, padx=2, pady=20)
+
+        tk.Label(self.frame_right_info, text="FPS: ").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.label_fps_info.grid(row=1, column=1, sticky=tk.W, padx=5, pady=2)
+
+        tk.Label(self.frame_right_info, text="Faces in database: ").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
+        self.label_cnt_face_in_database.grid(row=2, column=1, sticky=tk.W, padx=5, pady=2)
+
+        tk.Label(self.frame_right_info,
+                 text="Faces in current frame: ").grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
+        self.label_face_cnt.grid(row=3, column=2, columnspan=3, sticky=tk.W, padx=5, pady=2)
+
+        self.label_warning.grid(row=4, column=0, columnspan=3, sticky=tk.W, padx=5, pady=2)
+        # Add input fields for student ID, first name, last name
+        # Input fields for student ID
+        tk.Label(self.frame_right_info, text="Student ID: ").grid(row=6, column=0, sticky=tk.W, padx=5, pady=2)
+        self.input_student_id = tk.Entry(self.frame_right_info)
+        self.input_student_id.grid(row=6, column=1, sticky=tk.W, padx=0, pady=2)
+
+        tk.Button(self.frame_right_info,
+                text='Input Student ID',
+                command=self.GUI_get_input_id).grid(row=6, column=2, padx=5)
+
+        tk.Label(self.frame_right_info, text="First Name: ").grid(row=7, column=0, sticky=tk.W, padx=5, pady=2)
+        self.input_first_name = tk.Entry(self.frame_right_info)
+        self.input_first_name.grid(row=7, column=1, sticky=tk.W, padx=0, pady=2)
+
+        tk.Label(self.frame_right_info, text="Last Name: ").grid(row=7, column=0, sticky=tk.W, padx=5, pady=2)
+        self.input_last_name = tk.Entry(self.frame_right_info)
+        self.input_last_name.grid(row=7, column=1, sticky=tk.W, padx=0, pady=2)
+
+        # Add dropdowns for faculty and field selection
+        tk.Label(self.frame_right_info, text="Faculty: ").grid(row=8, column=0, sticky=tk.W, padx=5, pady=2)
+        self.faculty_options = ["SIT"]  # Modify with actual options
+        self.faculty_var = tk.StringVar(self.frame_right_info)
+        self.faculty_var.set(self.faculty_options[0])  # Default value
+        self.dropdown_faculty = tk.OptionMenu(self.frame_right_info, self.faculty_var, *self.faculty_options)
+        self.dropdown_faculty.grid(row=8, column=1, sticky=tk.W, padx=0, pady=2)
+
+        tk.Label(self.frame_right_info, text="Field: ").grid(row=9, column=0, sticky=tk.W, padx=5, pady=2)
+        self.field_options = ["IT", "CS", "DSI"]  # Modify with actual options
+        self.field_var = tk.StringVar(self.frame_right_info)
+        self.field_var.set(self.field_options[0])  # Default value
+        self.dropdown_field = tk.OptionMenu(self.frame_right_info, self.field_var, *self.field_options)
+        self.dropdown_field.grid(row=9, column=1, sticky=tk.W, padx=0, pady=2)
+
+        # Add input fields for email, password, and confirm password
+        tk.Label(self.frame_right_info, text="Email: ").grid(row=10, column=0, sticky=tk.W, padx=5, pady=2)
+        self.input_email = tk.Entry(self.frame_right_info)
+        self.input_email.grid(row=10, column=1, sticky=tk.W, padx=0, pady=2)
+
+        tk.Label(self.frame_right_info, text="Password: ").grid(row=11, column=0, sticky=tk.W, padx=5, pady=2)
+        self.input_password = tk.Entry(self.frame_right_info, show="*")
+        self.input_password.grid(row=11, column=1, sticky=tk.W, padx=0, pady=2)
+
+        tk.Label(self.frame_right_info, text="Confirm Password: ").grid(row=12, column=0, sticky=tk.W, padx=5, pady=2)
+        self.input_confirm_password = tk.Entry(self.frame_right_info, show="*")
+        self.input_confirm_password.grid(row=12, column=1, sticky=tk.W, padx=0, pady=2)
+
+        # Add a button to trigger registration process
+        tk.Button(self.frame_right_info,
+                text='Register',
+                command=self.register_face).grid(row=13, column=0, columnspan=2, sticky=tk.W, padx=5, pady=20)
+
+        # Show log in GUI
+        self.log_all.grid(row=14, column=0, columnspan=2, sticky=tk.W, padx=5, pady=20)
+
+        
+                
+        self.frame_right_info.pack()
+
+
+
+    
+    def register_face(self):
+        # Get the values entered by the user
+        student_id = self.input_student_id.get()
+        first_name = self.input_first_name.get()
+        last_name = self.input_last_name.get()
+        faculty = self.faculty_var.get()
+        field = self.field_var.get()
+        email = self.input_email.get()
+        password = self.input_password.get()
+        confirm_password = self.input_confirm_password.get()
+
+        # Validation checks
+        if not all([student_id, first_name, last_name, email, password, confirm_password]):
+            self.log_all.config(text="Please fill in all fields", fg="red")
+            return
+
+        if not self.validate_email(email):
+            # Email is valid, proceed with registration
+            self.log_all.config(text="Invalid email address!", fg="red")
+            return
+        
+        if password != confirm_password:
+            self.log_all.config(text="Passwords do not match", fg="red")
+            return
+
+        # Here you can add additional validation or processing logic as needed
+
+        # Once validated, you can proceed with saving the face or performing any other action
+        self.save_current_face()
+
+        
+        # API endpoint
+        api_url = "http://10.4.85.17:8081/api/student"
+
+        # Request payload
+        payload = {
+            "student_id": student_id,
+            "firstname": first_name,
+            "lastname": last_name,
+            "faculty": faculty,
+            "field": field,
+            "email": email,
+            "password": password
+        }
+
+        # Send POST request to the API
+        try:
+            response = requests.post(api_url, json=payload)
+            if response.status_code == 201:
+                self.log_all.config(text="Registration successful!", fg="green")
+            elif response.status_code == 400:
+                error_message = response.json().get("message", "Registration failed!")
+                self.log_all.config(text=error_message, fg="red")
+            else:
+                self.log_all.config(text="Failed to register. Please try again later.", fg="red")
+        except Exception as e:
+            print("Error:", e)
+            self.log_all.config(text="Failed to connect to the server. Please try again later.", fg="red")
+
+        # Optionally, you can display a success message
+        self.log_all.config(text="Face registered successfully!", fg="green")
+
+    def validate_email(self, email):
+        # Regular expression pattern for email validation
+        pattern = r'^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$'
+        return re.match(pattern, email)
+
+    
+    def GUI_info2(self):
         tk.Label(self.frame_right_info,
                  text="Face register",
                  font=self.font_title).grid(row=0, column=0, columnspan=3, sticky=tk.W, padx=2, pady=20)
